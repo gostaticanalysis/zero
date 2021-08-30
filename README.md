@@ -2,7 +2,7 @@
 
 [![pkg.go.dev][gopkg-badge]][gopkg]
 
-`zero` zero finds unnecessary assignment which zero value assigns to a variable.
+`zero` finds unnecessary assignment which zero value assigns to a variable.
 
 ```go
 package a
