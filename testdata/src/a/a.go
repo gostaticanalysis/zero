@@ -21,4 +21,14 @@ func _() {
 
 	type T struct{ N int }
 	var _ T = T{} // want "shoud not assign zero value"
+
+	{
+		n, _ := func() (int, int) { return 0, 0 }() // OK
+		_ = n
+	}
+
+	{
+		var n, _ = func() (int, int) { return 0, 0 }() // OK
+		_ = n
+	}
 }

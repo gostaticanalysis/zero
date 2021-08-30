@@ -1,6 +1,7 @@
 package zero
 
 import (
+	"fmt"
 	"go/ast"
 	"go/constant"
 	"go/token"
@@ -27,7 +28,18 @@ var (
 	objFalse = types.Universe.Lookup("false")
 )
 
-func run(pass *analysis.Pass) (interface{}, error) {
+func run(pass *analysis.Pass) (_ interface{}, rerr error) {
+	defer func() {
+		if v := recover(); v != nil {
+			switch v := v.(type) {
+			case error:
+				rerr = v
+			default:
+				rerr = fmt.Errorf("panic:%v", v)
+			}
+		}
+	}()
+
 	inspect := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 
 	nodeFilter := []ast.Node{
@@ -54,7 +66,7 @@ func checkDecl(pass *analysis.Pass, decl *ast.GenDecl) {
 
 	for _, spec := range decl.Specs {
 		spec, _ := spec.(*ast.ValueSpec)
-		if spec == nil || len(spec.Values) == 0 {
+		if spec == nil || len(spec.Names) != len(spec.Values) {
 			continue
 		}
 
@@ -71,16 +83,21 @@ func checkDecl(pass *analysis.Pass, decl *ast.GenDecl) {
 }
 
 func checkAssign(pass *analysis.Pass, n *ast.AssignStmt) {
-	if n.Tok != token.DEFINE {
+	if n.Tok != token.DEFINE || len(n.Lhs) != len(n.Rhs) {
 		return
 	}
 
 	for i := range n.Lhs {
-		typ := pass.TypesInfo.TypeOf(n.Lhs[i])
+		if n.Rhs[i] == nil {
+			continue
+		}
+
 		// conversion (including function calling)
 		if _, ok := n.Rhs[i].(*ast.CallExpr); ok {
 			continue
 		}
+
+		typ := pass.TypesInfo.TypeOf(n.Lhs[i])
 		if isZero(pass, typ, n.Rhs[i]) {
 			pass.Reportf(n.Rhs[i].Pos(), "shoud not assign zero value")
 		}
